@@ -1,10 +1,11 @@
 /**
  * @author Bramus!
  * @copyright Copyright © 2007, Bram Van Damme
- * @version 0.3.1
+ * @version 0.3.2
  *
+ * v 0.3.2 - 2007.07.23 - minor change in outputted HTML of the selects
  * v 0.3.1 - 2007.06.28 - ids must be unique, so added a check and confirm thingy ;-)
- * v 0.3   - 2007.06.27 - Plugin changed from bramus_classeslist to bramus_cssextras cos it now supports the settings of ids too :-)
+ * v 0.3   - 2007.06.27 - Plugin changed from bramus_classeslist to bramus_cssextras as it now supports the settings of ids too :-)
  * v 0.2   - 2007.06.22 - added Undo Levels + a few extra comments (should be fully commented now)
  * v 0.1   - 2007.06.19 - initial build
  */
@@ -63,8 +64,8 @@ var TinyMCE_BramusCSSExtrasPlugin = {
 		return "";
 	},
 	
-	_defaultSelectClasses		: '<select name="BramusCSSExtrasClassesSelect" id="BramusCSSExtrasClassesSelect_{$editor_id}" onchange="javascript:tinyMCE.execInstanceCommand(\'{$editor_id}\', \'bramus_cssextras_classes_exec\', false, this);" style="width: 80px;"><option value="">[ no class ]</option></select>',
-	_defaultSelectIds			: '<select name="BramusCSSExtrasIdsSelect" id="BramusCSSExtrasIdsSelect_{$editor_id}" onchange="javascript:tinyMCE.execInstanceCommand(\'{$editor_id}\', \'bramus_cssextras_ids_exec\', false, this);" style="width: 80px;"><option value="">[ no id ]</option></select>',
+	_defaultSelectClasses		: '<select name="BramusCSSExtrasClassesSelect" id="BramusCSSExtrasClassesSelect_{$editor_id}" onchange="javascript:tinyMCE.execInstanceCommand(\'{$editor_id}\', \'bramus_cssextras_classes_exec\', false, this);" style="width: 80px;" class="mceSelectList"><option value="">[ no class ]</option></select>',
+	_defaultSelectIds			: '<select name="BramusCSSExtrasIdsSelect" id="BramusCSSExtrasIdsSelect_{$editor_id}" onchange="javascript:tinyMCE.execInstanceCommand(\'{$editor_id}\', \'bramus_cssextras_ids_exec\', false, this);" style="width: 80px;" class="mceSelectList"><option value="">[ no id ]</option></select>',
 	
 	_coreArrayClasses			: null,
 	_coreArrayIds				: null,
