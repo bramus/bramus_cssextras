@@ -1,6 +1,6 @@
 /**
  * @name         bramus_cssextras
- * @version      0.4.1
+ * @version      0.5.0
  *
  * @author       Bramus! (Bram Van Damme)
  * @authorURL    http://www.bram.us/
@@ -9,7 +9,7 @@
  * @license      Creative Commons Attribution-Share Alike 2.5
  * @licenseURL   http://creativecommons.org/licenses/by-sa/2.5/
  *
- *
+ * v 0.5.0 - 2007.12.11 - NEW : TinyMCE 3.x Compatibility (TinyMCE 2.x is no longer supported)
  * v 0.4.1 - 2007.11.22 - BUG : didn't work with multiple content_css files specified (@see http://www.bram.us/projects/tinymce-plugins/tinymce-classes-and-ids-plugin-bramus_cssextras/#comment-89820)
  *                      - BUG : If for example p.test is defined multiple times, show "test" only once in the dropdown.
  * v 0.4.0 - 2007.09.10 - BUG : selection noclass returned "undefined" as class, should be empty
@@ -21,468 +21,551 @@
  * v 0.2   - 2007.06.22 - added Undo Levels + a few extra comments (should be fully commented now)
  * v 0.1   - 2007.06.19 - initial build
  */
+ 
+(function() {
+		  
+	// Load plugin specific language pack
+	// tinymce.PluginManager.requireLangPack('bramus_cssextras');
 
-/* Import plugin specific language pack */
-// tinyMCE.importPluginLanguagePack('bramus_classeslist', 'en');
+	tinymce.create('tinymce.plugins.BramusCssExtras', {
 
-var TinyMCE_BramusCSSExtrasPlugin = {
-
-	/**
-	 * Returns information about the plugin as a name/value array.
-	 * The current keys are longname, author, authorurl, infourl and version.
-	 *
-	 * @returns Name/value array containing information about the plugin.
-	 * @type Array 
-	 */
-	 
-	getInfo : function() {
-		return {
-			longname 	: 'Plugin to support the adding of classes and ids to elements (or their parent element)',
-			author 		: 'Bramus!',
-			authorurl	: 'http://www.bram.us/',
-			infourl		: 'http://www.bram.us/projects/tinymce-plugins/',
-			version		: "0.4.1"
-		};
-	},
-	
-	/**
-	 * Gets executed when a TinyMCE editor instance is initialized.
-	 *
-	 * @param {TinyMCE_Control} Initialized TinyMCE editor control instance. 
-	 */
-	initInstance : function(inst) {
-		// inst.addShortcut('ctrl', 'w', 'lang_wcLink_desc', 'wcLink');
-	},
-
-	/**
-	 * Returns the HTML code for a specific control or empty string if this plugin doesn't have that control.
-	 * A control can be a button, select list or any other HTML item to present in the TinyMCE user interface.
-	 * The variable {$editor_id} will be replaced with the current editor instance id and {$pluginurl} will be replaced
-	 * with the URL of the plugin. Language variables such as {$lang_somekey} will also be replaced with contents from
-	 * the language packs.
-	 *
-	 * @param {string} cn Editor control/button name to get HTML for.
-	 * @return HTML code for a specific control or empty string.
-	 * @type string
-	 */
-	getControlHTML : function(control_name) {
-		switch (control_name) {
-			case "bramus_cssextras_classes":
-			case "bramus_cssextras_ids":
-				return (this._buildParamsFromEditor(control_name));
-			break;
-		}
-
-		return "";
-	},
-	
-	_defaultSelectClasses		: '<select name="BramusCSSExtrasClassesSelect" id="BramusCSSExtrasClassesSelect_{$editor_id}" onchange="javascript:tinyMCE.execInstanceCommand(\'{$editor_id}\', \'bramus_cssextras_classes_exec\', false, this);" style="width: 80px;" class="mceSelectList"><option value="">[ no class ]</option></select>',
-	_defaultSelectIds			: '<select name="BramusCSSExtrasIdsSelect" id="BramusCSSExtrasIdsSelect_{$editor_id}" onchange="javascript:tinyMCE.execInstanceCommand(\'{$editor_id}\', \'bramus_cssextras_ids_exec\', false, this);" style="width: 80px;" class="mceSelectList"><option value="">[ no id ]</option></select>',
-	
-	_coreArrayClasses			: null,
-	_coreArrayIds				: null,
-	
-	_xmlhttp					: null,
-	_xmlhttpresponse			: null,
-	
-	_trim 						: function(str) {
-		return str.replace(/^\s+|\s+$/g,"");
-	},
-	
-	_ltrim 						: function(str) {
-		return str.replace(/^\s+/,"");
-	},
-	
-	_rtrim 						: function() {
-		return this.replace(/\s+$/,"");
-	},
+		/**
+		 * Returns information about the plugin as a name/value array.
+		 * The current keys are longname, author, authorurl, infourl and version.
+		 *
+		 * @return {Object} Name/value array containing information about the plugin.
+		 */
+			getInfo : function() {
+				return {
+					longname 	: 'Plugin to support the adding of classes and ids to elements (or their parent element)',
+					author 		: 'Bramus!',
+					authorurl	: 'http://www.bram.us/',
+					infourl		: 'http://www.bram.us/projects/tinymce-plugins/',
+					version		: "0.5.0"
+				};
+			},
 		
-	_loadContentCSS				: function(control_name) {
-	
-		// if this_xmlhttpresponse equals null, then the css file hasn't been loaded yet ... 
-			if (this._xmlhttpresponse == null) {
+		
+		/**
+		 * Initializes the plugin, this will be executed after the plugin has been created.
+		 * This call is done before the editor instance has finished it's initialization so use the onInit event
+		 * of the editor instance to intercept that event.
+		 *
+		 * @param {tinymce.Editor} ed Editor instance that the plugin is initialized in.
+		 * @param {string} url Absolute URL to where the plugin is located.
+		 */
+			init : function(ed, url) {
+				this._init(ed, url);
+			},
 
-				// create nex XHR object
-				if (window.XMLHttpRequest) {
-					this._xmlhttp 	= new XMLHttpRequest();
-				} else if (window.ActiveXObject) {
-					this._xmlhttp 	= new ActiveXObject('Microsoft.XMLHTTP');
+
+		/**
+		 * Creates control instances based in the incomming name. This method is normally not
+		 * needed since the addButton method of the tinymce.Editor class is a more easy way of adding buttons
+		 * but you sometimes need to create more complex controls like listboxes, split buttons etc then this
+		 * method can be used to create those.
+		 *
+		 * @param {String} n Name of the control to create.
+		 * @param {tinymce.ControlManager} cm Control manager to use inorder to create new control.
+		 * @return {tinymce.ui.Control} New control instance or null if no control was created.
+		 */
+			createControl : function(n, cm) {
+				switch (n) {
+					case 'bramus_cssextras_classes':
+					case 'bramus_cssextras_ids':
+						return this._createControl(n, cm);				
+					break;
 				}
 				
-				// make sure it's an object
-				if (typeof(this._xmlhttp) == 'object') {
+				return null;
+			},
+		
+		
+		/**
+		 * Internally used variables
+		 * ---------------------------------------------------------------------------------------------------
+		 */
+		 
+			// Strings that will hold all possible classes/ids /* removed, these are global now */
+				// _coreClassesString			: null,
+				// _coreIdsStrings				: null,
+				
+			// Arrays that will hold all possible classes/ids /* removed, these are global now */
+				// _coreClassesArray			: null,
+				// _coreIdsArray				: null,
+		 
+			// The dropdowns
+				_coreClassesDropdown		: null,
+				_coreIdsDropdown			: null,
+			
+			// XHR Object & Response - needed for loading the content_css file(s) if needed
+				_xmlhttp					: null,
+				_xmlhttpresponse			: null,
+
+			// CPU Power Savers : The previous node (don't calculate if nothing changed) and Already loaded (only init this plugin once)
+				_previousNode				: null,
+				// _loaded						: null, /* removed, these are global now */
+		
+		
+		/**
+		 * Helper Functions
+		 * ---------------------------------------------------------------------------------------------------
+		 */
+		
+			// Helper function : trim a string
+				_trim 						: function(str) {
+					return str.replace(/^\s+|\s+$/g,"");
+				},
+			
+			// Helper function : left trim a string
+				_ltrim 						: function(str) {
+					return str.replace(/^\s+/,"");
+				},
+			
+			// Helper function : right trim a a string
+				_rtrim 						: function() {
+					return this.replace(/\s+$/,"");
+				},
+			
+			// Helper function : is element in array (and return position if so)
+				_inArray					: function(needle, haystack) {
 					
-					// get the content_css path
-					content_css	= tinyMCE.getParam("content_css", false);
+					// loop all elements of array (haystack)
+					for (var i = 0; i < haystack.length; i++){
+						
+						// compare with needle
+						if (needle == haystack[i]) {
+							
+							// got hit : return position in array
+							return i;
+							
+						}
+						
+					}			
+					// no hit
+					return false;
+				},
+				
+		/**
+		 * Init function
+		 * ---------------------------------------------------------------------------------------------------
+		 */
+		 
+		 	_init						: function (ed, url) {
+				
+				// if not intialized yet: get the params & build the arrays
+				if (tinymce.plugins.BramusCssExtras._loaded == undefined) {
 					
-					// var which will hold all data from all files referred through content_css
+					// get the params
+						tinymce.plugins.BramusCssExtras._coreClassesString		= tinyMCE.activeEditor.getParam("bramus_cssextras_classesstring", undefined);
+						tinymce.plugins.BramusCssExtras._coreIdsString			= tinyMCE.activeEditor.getParam("bramus_cssextras_idsstring", undefined);
+						
+					// one of the params was not set, try to get the content_css over XHR (Ajax)
+						if ((tinymce.plugins.BramusCssExtras._coreClassesString == undefined) || (tinymce.plugins.BramusCssExtras._coreIdsString == undefined)) {
+							this._loadContentCSS(tinyMCE.activeEditor.getParam("content_css", false));
+						}
+						
+					// now that we have the params, process 'm
+						tinymce.plugins.BramusCssExtras._coreClassesArray		= this._processElementsAndShizzle(tinymce.plugins.BramusCssExtras._coreClassesString.split(';'));
+						tinymce.plugins.BramusCssExtras._coreIdsArray			= this._processElementsAndShizzle(tinymce.plugins.BramusCssExtras._coreIdsString.split(';'));
+						
+					// debug
+						// console.log(tinymce.plugins.BramusCssExtras._coreClassesArray);
+						// console.log(tinymce.plugins.BramusCssExtras._coreIdsArray);
+					
+				}
+				
+				// hook plugin to nodeChange event
+				ed.onNodeChange.add(this._nodeChange, this);
+				
+				// hook Commands
+				ed.addCommand('bceClass', function(ui, v) {
+					this._execCommand(ed, v, this._coreClassesDropdown, "class");
+				}, this);
+				
+				ed.addCommand('bceId', function(ui, v) {
+					this._execCommand(ed, v, this._coreIdsDropdown, "id");
+				}, this);
+				
+				// set loaded
+				tinymce.plugins.BramusCssExtras._loaded = true;
+			},
+			
+		/**
+		 * loadContentCSS function : loads in the content_css over XHR
+		 * ---------------------------------------------------------------------------------------------------
+		 */
+		 
+			_loadContentCSS				: function(content_css) {
+	
+				// only proceed if content_css is set
+					if (content_css == false) {
+						return;	
+					}
+	
+				// create nex XHR object
+					if (window.XMLHttpRequest) {
+						this._xmlhttp 	= new XMLHttpRequest();
+					} else if (window.ActiveXObject) {
+						this._xmlhttp 	= new ActiveXObject('Microsoft.XMLHTTP');
+					}
+						
+				// var which will hold all data from all files referred through content_css
 					content_css_data = "";
+				
+				// make sure it's an object
+					if (typeof(this._xmlhttp) == 'object') {
+						
+						// content_css exists?
+							if (content_css && (content_css != null) && (content_css != "")) {
+								
+								// support the referring of multiple classes
+									content_css_arr	= content_css.split(',');
+								
+								// loop all referred css files
+									for (i = 0; i < content_css_arr.length; i++) {
+										
+										// load it in, but <<<< SYNCHRONOUS >>>>
+										// this._xmlhttp.onreadystatechange	= this._doneLoadContentCSS;		// SYNCHRONOUS, no need to set onreadystatechange!
+											this._xmlhttp.open('GET', this._trim(content_css_arr[i]), false);						// false == SYNCHRONOUS ;-)
+											this._xmlhttp.send(null);
+										
+										// wait for it to load
+											if (this._xmlhttp.readyState == 4) {
+						
+												// loaded!
+												if (this._xmlhttp.status == 200) {
+						
+													// get the responseText
+													this._xmlhttpresponse	= this._xmlhttp.responseText;
+						
+													// run some prelim regexes on them
+													this._xmlhttpresponse 	= this._xmlhttpresponse.replace(/(\r\n)/g, "");			// get all CSS rules on 1 line per selector : 1 line on whole document
+													this._xmlhttpresponse 	= this._xmlhttpresponse.replace(/(\})/g, "}\n");		// get all CSS rules on 1 line per selector : 1 line per selector
+													this._xmlhttpresponse 	= this._xmlhttpresponse.replace(/\{(.*)\}/g, "");		// strip out css rules themselves
+													this._xmlhttpresponse 	= this._xmlhttpresponse.replace(/\/\*(.*)\*\//g, "");	// strip out comments
+													this._xmlhttpresponse 	= this._xmlhttpresponse.replace(/\t/g, "");				// strip out tabs
+						
+													content_css_data		+= this._xmlhttpresponse + "\n";
+						
+												// not loaded!
+												} else {
+                        							tinyMCE.activeEditor.windowManager.alert("[bramus_cssextras] Error while loading content_css file '" + content_css_arr[i] + "', make sure the path is correct!");
+												}
+											}
+									}
+			
+								// clear the xhr object
+									this._xmlhttp 			= null;
+							
+							}
+					}
+						
+				// process the content_css_data (only if the vars are not set yet - viz. don't overwrite)
+					if (tinymce.plugins.BramusCssExtras._coreClassesString == undefined) {
+						tinymce.plugins.BramusCssExtras._coreClassesString	= this._processContentCSSMatches(content_css_data, ".");
+					}
+						
+					if (tinymce.plugins.BramusCssExtras._coreIdsString == undefined) {
+						tinymce.plugins.BramusCssExtras._coreIdsString		= this._processContentCSSMatches(content_css_data, "#");
+					}
+				
 					
-					// content_css exists?
-					if (content_css && (content_css != null) && (content_css != "")) {
+			},
+			
+		/**
+		 * processContentCSSMatches function : processes the matches loaded over XHR
+		 * ---------------------------------------------------------------------------------------------------
+		 */
+		 
+			_processContentCSSMatches	: function(content_css_data, identifier) {
+				
+				// split da sucker!
+					if (identifier == ".") {
+						matches		= content_css_data.match(/([a-zA-Z0-9])+(\.)([a-zA-Z0-9_\-])+(\b)?/g);
+					} else {
+						matches		= content_css_data.match(/([a-zA-Z0-9])+(\#)([a-zA-Z0-9_\-])+(\b)?/g);
+					}						
+
+				// got any matches?
+					if (!matches) {
+						return "";	
+					} else {
+						arr_selectors			= new Array();
+						arr_values				= new Array();
+					}
+				
+				// run matches and build selectors and values arrays.					
+					for (var i = 0; i < matches.length; i++) {
 						
-						// support the referring of multiple classes
-						content_css_arr	= content_css.split(',');
+						// split on the identifier
+						matches[i]	= matches[i].split(identifier);
 						
-						// loop all referred css files
-						for (i = 0; i < content_css_arr.length; i++) {
+						var position	= this._inArray(((matches[i][0] != "ul")?matches[i][0]:"li") + "::" + ((matches[i][0] != "ul")?"self":matches[i][0]), arr_selectors);
+					
+						// not found : add selector and classes/ids
+						if (position === false) {
+							arr_selectors.push(((matches[i][0] != "ul")?matches[i][0]:"li") + "::" + ((matches[i][0] != "ul")?"self":matches[i][0]));
+							arr_values.push(matches[i][1]);
 							
-							// load it in, but <<<< SYNCHRONOUS >>>>
-							// this._xmlhttp.onreadystatechange	= this._doneLoadContentCSS;		// SYNCHRONOUS, no need to set onreadystatechange!
-							this._xmlhttp.open('GET', this._trim(content_css_arr[i]), false);						// false == SYNCHRONOUS ;-)
-							this._xmlhttp.send(null);
-							
-							// wait for it to load
-							if (this._xmlhttp.readyState == 4) {
-		
-								// loaded!
-								if (this._xmlhttp.status == 200) {
-		
-									// get the responseText
-									this._xmlhttpresponse	= this._xmlhttp.responseText;
-		
-									// run some prelim regexes on them
-									this._xmlhttpresponse 	= this._xmlhttpresponse.replace(/(\r\n)/g, "");			// get all CSS rules on 1 line per selector : 1 line on whole document
-									this._xmlhttpresponse 	= this._xmlhttpresponse.replace(/(\})/g, "}\n");		// get all CSS rules on 1 line per selector : 1 line per selector
-									this._xmlhttpresponse 	= this._xmlhttpresponse.replace(/\{(.*)\}/g, "");		// strip out css rules themselves
-									this._xmlhttpresponse 	= this._xmlhttpresponse.replace(/\/\*(.*)\*\//g, "");	// strip out comments
-									this._xmlhttpresponse 	= this._xmlhttpresponse.replace(/\t/g, "");				// strip out tabs
-		
-									content_css_data		+= this._xmlhttpresponse + "\n";
-		
-								// not loaded!
-								} else {
-									alert("[bramus_cssextras] Error while loading content_css file '" + content_css_arr[i] + "', make sure the path is correct and that the file is located on this server!");	
-								}
+						// found, adjust ids on position
+						} else {
+							// extra check: check if ain't class/id isn't in values yet!
+							if (this._inArray(matches[i][1], arr_values[position].split(',')) === false) {
+								arr_values[position]	= arr_values[position] + "," + matches[i][1];
 							}
 						}
 		
-						// clear the xhr object
-						this._xmlhttp 			= null;
-						
+					}
+				
+				// build the elmsAndShizzleArray (Shizzle being either Ids or Classes)
+					var elmsAndShizzleArray			= new Array();
+					
+					for (var i = 0;  i < arr_selectors.length; i++) {
+						elmsAndShizzleArray.push(arr_selectors[i] + "[" + arr_values[i] + "]");
 					}
 					
-				}
-			}
+					return elmsAndShizzleArray.join(';');
+			},
+			
+		/**
+		 * processMatches
+		 * ---------------------------------------------------------------------------------------------------
+		 */
+		 
+		 	_processElementsAndShizzle				: function(elmsAndShizzleArray) {
+			
+				// create new array to hold the real stuff
+					coreArray			= new Array();
+					
+				// if no array passed in, return an empty array!
+					if (!elmsAndShizzleArray) {
+						return coreArray;	
+					}
+				
+				// loop the entries of elmsAndClassesArray
+					if (elmsAndShizzleArray.length > 0) {
+						for (var i = 0; i < elmsAndShizzleArray.length; i++) {
 							
-		// someone set us up the bomb! -->> strip out classes (or ids)
-			if (control_name == "bramus_cssextras_classes") {
-				matches		= content_css_data.match(/([a-zA-Z0-9])+(\.)([a-zA-Z0-9_\-])+(\b)?/g);
-			} else {
-				matches		= content_css_data.match(/([a-zA-Z0-9])+(\#)([a-zA-Z0-9_\-])+(\b)?/g);
-			}
-			
-		// found any hits?
-			if (!matches) {
-				return '';	
-			} else {
-				arr_selectors			= new Array();
-				arr_values				= new Array();
-			}
-		
-		// run matches and build selectors and values arrays.					
-			for (var i = 0; i < matches.length; i++) {
-				
-				if (control_name == "bramus_cssextras_classes") {
-					matches[i]	= matches[i].split(".");
-				} else {
-					matches[i]	= matches[i].split("#");
-				}
-				
-				
-				var position	= this._inArray(((matches[i][0] != "ul")?matches[i][0]:"li") + "::" + ((matches[i][0] != "ul")?"self":matches[i][0]), arr_selectors);
-			
-				// not found : add selector and classes/ids
-				if (position === false) {
-					arr_selectors.push(((matches[i][0] != "ul")?matches[i][0]:"li") + "::" + ((matches[i][0] != "ul")?"self":matches[i][0]));
-					arr_values.push(matches[i][1]);
-					
-				// found, adjust ids on position
-				} else {
-					// extra check: check if ain't class/id isn't in values yet!
-					// console.log("Checking for " + matches[i][1] + " in " + arr_values[position].split(','));
-					if (this._inArray(matches[i][1], arr_values[position].split(',')) === false) {
-						arr_values[position]	= arr_values[position] + "," + matches[i][1];
-					}
-				}
-
-			}
-		
-		// build the elmsAndClassesArray
-			var elmsAndClassesArray			= new Array();
-			
-			for (var i = 0;  i < arr_selectors.length; i++) {
-				elmsAndClassesArray.push(arr_selectors[i] + "[" + arr_values[i] + "]");
-			}
+							// check if syntax is correct and get data from the entry
+							var elmAndShizzleString 	= elmsAndShizzleArray[i];
+							var elmAndShizzleArray		= elmAndShizzleString.match(/(.*)::(.*)\[(.*)\]/);
+							
+							// got less than 4 matches : invalid entry!
+							if ((!elmAndShizzleArray) || (elmAndShizzleArray.length < 4)) {
 								
-			return elmsAndClassesArray;
-	},
-	
-	// get position of item in array
-	_inArray					: function(needle, haystack) {
-		for (var i = 0; i < haystack.length; i++){
-			if (needle == haystack[i]) {
-				return i;
-			}
-		}			
-		return false;
-	},
-		
-	_buildParamsFromEditor		: function(control_name) {
-		
-		// STEP 1 : Define what to check (ids or classes?)
-			switch(control_name) {
-				case "bramus_cssextras_classes":
-					coreArray		= this._coreArrayClasses;
-					defaultSelect	= this._defaultSelectClasses;
-					param			= tinyMCE.getParam("bramus_cssextras_classesstring", null);
-				break;
+								// nothing
+								
+							// found 4 matches : valid entry!
+							} else{
+													
+								// get elementNodeName, parentElementNodeName, elementClasses and push them on the arrayz!
+								coreArray.push(new Array(elmAndShizzleArray[1], elmAndShizzleArray[2], elmAndShizzleArray[3].split(',')));
+							}
+						}
+					}	
 				
-				case "bramus_cssextras_ids":
-					coreArray		= this._coreArrayIds;
-					defaultSelect	= this._defaultSelectIds;
-					param			= tinyMCE.getParam("bramus_cssextras_idsstring", null);
-				break;
-			}
+				// return it
+					return coreArray;
+			},
+				
+		/**
+		 * createControl function
+		 * ---------------------------------------------------------------------------------------------------
+		 */
+		 
+		 	_createControl				: function (n, cm) {
 						
-		// STEP 2 : Now that we've defined this all, do something with it!
-		
-			// save your energy : coreArray already built (TIP: plugin getControlHTML is loaded multiple times when using multiple instances, yet the plugin is only loaded once!)
-			if (coreArray != null) { return defaultSelect; }
-			
-			// get the param from the init
-			var elmsAndClassesString = param;
-			
-			// param is there (can be empty)
-			if (elmsAndClassesString != null) {
-				// split out each "elem::parentelem[class1,class2]" entry from that string
-				elmsAndClassesArray 				= elmsAndClassesString.split(';');
-				
-			// param is not there
-			} else {				
-				// try building the elmsAndClassesArray by reading in and parsing the content_css file
-				elmsAndClassesArray					= this._loadContentCSS(control_name);
-			}
-			
-			// console.log(elmsAndClassesArray);
-			
-			// create new array to hold the real stuff
-			coreArray			= new Array();
-			
-			// loop the entries of elmsAndClassesArray
-			if (elmsAndClassesArray.length > 0) {
-				for (var i = 0; i < elmsAndClassesArray.length; i++) {
+				switch(n) {
 					
-					// check if syntax is correct and get data from the entry
-					var elmAndClassesString 	= elmsAndClassesArray[i];
-					var elmAndClassesArray		= elmAndClassesString.match(/(.*)::(.*)\[(.*)\]/);
+					// bramus_cssextras_classes
+						case "bramus_cssextras_classes":
+							
+							// create a dropdown
+								ddm	= cm.createListBox('bramus_cssextras_classes_dropdown_' + tinyMCE.activeEditor.id, {
+										 title 	: '.class',
+										 cmd	: 'bceClass'
+									});
+								
+							// keep a reference to it in our own instance!
+								this._coreClassesDropdown = ddm;
+							
+							// return it
+								return ddm;
+							
+						break;
 					
-					// got less than 4 matches : invalid entry!
-					if ((!elmAndClassesArray) || (elmAndClassesArray.length < 4)) {
-						
-						// nothing
-						
-					// found 4 matches : valid entry!
-					} else{
-											
-						// get elementNodeName, parentElementNodeName, elementClasses and push them on the arrayz!
-						coreArray.push(new Array(elmAndClassesArray[1], elmAndClassesArray[2], elmAndClassesArray[3].split(',')));
-					}
-				}
-			}
-			
-		// STEP 3 : now that everything is filled, set 'm back (pass by reference I miss here ...)
-			switch(control_name) {
-				case "bramus_cssextras_classes":
-					this._coreArrayClasses		= coreArray;
-				break;
-				case "bramus_cssextras_ids":
-					this._coreArrayIds			= coreArray;
-				break;
-			}
-			
-		// STEP 4 : finalize (return something)
-		
-			// corearray not null and got hits? Return a disabled select
-			if (coreArray && (coreArray.length !== 0)) {
-				return defaultSelect;
-				
-			// corearray is null and/or no hits : don't even bother showing me; the user prolly didn't set this param!
-			} else {
-				return '';
-			}
-	},
-	
-	_previousNode				: null,
-	
-	_checkHit					: function(coreArray) {
-	
-		// correarray not null?
-		if (coreArray) {
-			for (var i = 0; i < coreArray.length; i++) {
-				if (coreArray[i][0].toLowerCase() == this._previousNode.nodeName.toLowerCase()) {
-					return coreArray[i];
-				}
-			}
-		}
-		
-		return null;
-		
-	},
-	
-	_doSomethingWithHit			: function(gotHit, selectDropDown, what) {
-		
-		if (gotHit === null) {
-			
-			// only continue if a dropdown is present!
-			if (selectDropDown) {
-				
-				// save your energy : no need to clear things if there's nothing to clear!
-				if (selectDropDown.options.length > 1) {
-									
-					// remove existing items
-					for (var i = selectDropDown.options.length; i >= 0; i--) {
-						selectDropDown.options[i] = null;
-					}
+					// bramus_cssextras_ids
+						case "bramus_cssextras_ids":
+							
+							// create a dropdown
+								ddm	= cm.createListBox('bramus_cssextras_ids_dropdown_' + tinyMCE.activeEditor.id, {
+										 title 	: '#id',
+										 cmd	: 'bceId'
+									});
+								
+							// keep a reference to it in our own instance!
+								this._coreIdsDropdown = ddm;
+								
+							// return it
+								return ddm;
+							
+						break;
 					
-					// push on the new ones (and enforce first one)
-					selectDropDown.options[0] 		= new Option("[ no " + what + " ]");
-					selectDropDown.options[0].value	= "";
 				}
-				
-				// enable the selectbox!
-				selectDropDown.disabled = 'disabled';
-				
-			}
+					
+				return null;
+			},
+			
+			
+		/**
+		 * nodeChange Function : event which gets triggered when the node has changed
+		 * ---------------------------------------------------------------------------------------------------
+		 */
 
-		} else {
-						
-			// get params from gotHit
-			var elemNodeName		= gotHit[0];
-			var parentElemNodeName	= gotHit[1];
-			var elementClasses		= gotHit[2];
+			_nodeChange : function(ed, cm, n) {
+								
+				// save your energy : check if ed.id equals tinyMCE.activeEditor.id
+					if (tinyMCE.activeEditor.id != ed.id) {
+						return;	
+					}
+		
+				// save your energy : no node select : return!
+					if (n == null)
+						return;
 			
-			// continue if parentElemNodeName equals self, or if parent node equals parentElemNodeName
-			if ((parentElemNodeName == "self") || (tinyMCE.getParentElement(this._previousNode, parentElemNodeName).nodeName.toLowerCase() == parentElemNodeName)) {
-				
-				// remove existing items
-				for (var i = selectDropDown.options.length; i >= 0; i--) {
-					selectDropDown.options[i] = null;
-				}
-				
-				// push on the new ones (and enforce first one)
-				selectDropDown.options[0] 		= new Option("[ no " + what + " ]");
-				selectDropDown.options[0].value	= "";
-				
-				// fill the dropdown with the values
-				for (var i = 0; i < elementClasses.length; i++) {
-					selectDropDown.options[i+1] 				= new Option(elementClasses[i]);
-					selectDropDown.options[i+1].value			= parentElemNodeName + "::" + elementClasses[i];
-					
-					// this node or the parent node?
-					if (parentElemNodeName == "self") {
-						var pNode 	= this._previousNode;
+				// save your energy : check if node differs from previousnode. If not, then we don't need to loop this all again ;-)
+					if (n == this._previousNode) {
+						return;
 					} else {
-						var pNode	= tinyMCE.getParentElement(this._previousNode, parentElemNodeName);
+						this._previousNode = n;
 					}
 					
-					// if the instance currently has this class, set this option as selected
-					switch(what) {
-						
-						case "class":
-							if (tinyMCE.hasCSSClass(pNode, elementClasses[i])) {
-								selectDropDown.options[i+1].selected	= true;
-							}
-						break;
-						
-						case "id":
-							if (pNode.id == elementClasses[i]) {
-								selectDropDown.options[i+1].selected	= true;
-							}
-						break;
-					}
-					
-				}
-								
-			}
+				// check if current elem has a match in the _coreArrayClasses or _coreArrayIds
+					var gotHitClass		= this._checkHit(tinymce.plugins.BramusCssExtras._coreClassesArray);
+					var gotHitIds		= this._checkHit(tinymce.plugins.BramusCssExtras._coreIdsArray);
+				
+				// now do something with that hit and that dropdown!
+					this._rebuildDropdown(gotHitClass, this._coreClassesDropdown, "class", ed);
+					this._rebuildDropdown(gotHitIds, this._coreIdsDropdown, "id", ed);
+
+			},
 			
-			// enable the selectbox!
-			selectDropDown.disabled = false;
+			
+		/**
+		 * checkHit : checks if the current node matches any of the arrays
+		 * ---------------------------------------------------------------------------------------------------
+		 */
+			_checkHit					: function(coreArray) {
+			
+				// correarray not null?
+				if (coreArray) {
+					for (var i = 0; i < coreArray.length; i++) {
+						if (coreArray[i][0].toLowerCase() == this._previousNode.nodeName.toLowerCase()) {
+							return coreArray[i];
+						}
+					}
+				}
 				
-		}
-	},
-
-	/**
-	 * Gets called ones the cursor/selection in a TinyMCE instance changes. This is useful to enable/disable
-	 * button controls depending on where the user are and what they have selected. This method gets executed
-	 * alot and should be as performance tuned as possible.
-	 *
-	 * @param {string} editor_id TinyMCE editor instance id that was changed.
-	 * @param {HTMLNode} node Current node location, where the cursor is in the DOM tree.
-	 * @param {int} undo_index The current undo index, if this is -1 custom undo/redo is disabled.
-	 * @param {int} undo_levels The current undo levels, if this is -1 custom undo/redo is disabled.
-	 * @param {boolean} visual_aid Is visual aids enabled/disabled ex: dotted lines on tables.
-	 * @param {boolean} any_selection Is there any selection at all or is there only a cursor.
-	 */
-	handleNodeChange : function(editor_id, node, undo_index, undo_levels, visual_aid, any_selection) {
-
-		// save your energy : check if editorId equals tinyMCE.selectedInstance.editorId
-		if (tinyMCE.selectedInstance.editorId != editor_id) {
-			return;	
-		}
-
-		// save your energy : no node select : return!
-		if (node == null)
-			return;
-	
-		// save your energy : check if node differs from previousnode. If not, then we don't need to loop this all again ;-)
-		if (node == this._previousNode) {
-			return;
-		} else {
-			this._previousNode = node;
-		}
-		
-		// check if current elem has a match in the _coreArrayClasses or _coreArrayIds
-		var gotHitClass		= this._checkHit(this._coreArrayClasses);
-		var gotHitIds		= this._checkHit(this._coreArrayIds);
-		
-		// get the dropdowns
-		var selectDropDownClasses 	= document.getElementById('BramusCSSExtrasClassesSelect_' + editor_id);
-		var selectDropDownIds 		= document.getElementById('BramusCSSExtrasIdsSelect_' + editor_id);
-		
-		// now do something with that hit and that dropdown!
-		this._doSomethingWithHit(gotHitClass, selectDropDownClasses, "class");
-		this._doSomethingWithHit(gotHitIds, selectDropDownIds, "id");
-
-		return true;
-	},
-
-	/**
-	 * Executes a specific command, this function handles plugin commands.
-	 *
-	 * @param {string} editor_id TinyMCE editor instance id that issued the command.
-	 * @param {HTMLElement} element Body or root element for the editor instance.
-	 * @param {string} command Command name to be executed.
-	 * @param {string} user_interface True/false if a user interface should be presented.
-	 * @param {mixed} value Custom value argument, can be anything.
-	 * @return true/false if the command was executed by this plugin or not.
-	 * @type
-	 */
-	execCommand : function(editor_id, element, command, user_interface, value) {
-		switch (command) {
-			case "bramus_cssextras_classes_exec":
-			case "bramus_cssextras_ids_exec":
-				// get the instance
-				var inst		= tinyMCE.getInstanceById(editor_id);
+				return null;
 				
-				// get the selected value
-				var listValue	= value.options[value.selectedIndex].value;
+			},
+			
+			
+		/**
+		 * rebuildDropdown : rebuilds the dropdowns and makes it so that the correct value is selected
+		 * ---------------------------------------------------------------------------------------------------
+		 */
+			_rebuildDropdown			: function(gotHit, selectDropDown, what, ed) {
 				
+				if (gotHit === null) {
+					
+					// only continue if a dropdown is present!
+					if (selectDropDown) {
+						
+						// remove existing items
+						selectDropDown.items = [];
+						
+						// TinyMCE fix - TIP : Moxiecode should provide a neat way to removing all items!
+						selectDropDown.oldID = null;
+						
+						// select nothing
+						selectDropDown.select();
+						
+						// disable the dropdown
+						selectDropDown.setDisabled(true);
+						
+					}
+		
+				} else {
+								
+					// get params from gotHit
+					var elemNodeName		= gotHit[0];
+					var parentElemNodeName	= gotHit[1];
+					var elementClasses		= gotHit[2];
+					
+					// continue if parentElemNodeName equals self, or if parent node equals parentElemNodeName
+					if ((parentElemNodeName == "self") || (ed.dom.getParent(this._previousNode, parentElemNodeName).nodeName.toLowerCase() == parentElemNodeName)) {
+						
+						// remove existing items
+						selectDropDown.items = [];
+						
+						// TinyMCE fix - TIP : Moxiecode should provide a neat way to removing all items!
+						selectDropDown.oldID = null;
+						
+						// push on the new ones (and enforce first one)
+						selectDropDown.add('[ no ' + what + ' ]', parentElemNodeName + "::");
+						
+						// select nothing
+						selectDropDown.select();
+						
+						// fill the dropdown with the values
+						for (var i = 0; i < elementClasses.length; i++) {
+							
+							selectDropDown.add(elementClasses[i], parentElemNodeName + "::" + elementClasses[i]);
+							
+							// this node or the parent node?
+							if (parentElemNodeName == "self") {
+								var pNode 	= this._previousNode;
+							} else {
+								var pNode	= ed.dom.getParent(this._previousNode, parentElemNodeName);
+							}
+							
+							// if the instance currently has this class, set this option as selected
+							switch(what) {								
+								case "class":
+									if (ed.dom.hasClass(pNode, elementClasses[i])) {
+										selectDropDown.select(parentElemNodeName + "::" + elementClasses[i]);
+									}
+								break;								
+								case "id":
+									if (pNode.id == elementClasses[i]) {
+										selectDropDown.select(parentElemNodeName + "::" + elementClasses[i]);
+									}
+								break;
+							}
+							
+						}
+										
+					}
+					
+					// render the selectdropdown
+					selectDropDown.renderMenu();
+					
+					// enable the selectbox!
+					selectDropDown.setDisabled(false);
+						
+				}
+				
+			},
+			
+			_execCommand			: function(ed, listValue, selectDropDown, what) {
+								
 				// this node or the parent node?
 				if (listValue.split("::")[0] == "self") {
-					var node 	= inst.getFocusElement();
+					var node 	= ed.selection.getNode();
 				} else {
-					var node	= tinyMCE.getParentElement(inst.getFocusElement(), listValue.split("::")[0]);
+					var node	= ed.dom.getParent(ed.selection.getNode(), listValue.split("::")[0]);
 				}
 				
 				// begin Undo
@@ -492,7 +575,7 @@ var TinyMCE_BramusCSSExtrasPlugin = {
 				toSetTo 	= (listValue.split("::")[1] != undefined)?listValue.split("::")[1]:"";
 				
 				// set className
-				if (command == "bramus_cssextras_classes_exec") {
+				if (what == "class") {
 					node.className	= toSetTo;
 					
 				// set id
@@ -502,20 +585,26 @@ var TinyMCE_BramusCSSExtrasPlugin = {
 					if (toSetTo != "") {
 						
 						// there already exists an element with that id?
-						if (inst.getDoc().getElementById(toSetTo)) {
+						if (ed.getDoc().getElementById(toSetTo)) {
 							
 							// confirm the move of the id
 							if (confirm("There already exists an element with that id, ids must be unique.\nPress 'OK' to move the id to the current element.\nPress 'Cancel' to leave unchanged")) {
 								
 								// remove id from current element with that id
-								inst.getDoc().getElementById(toSetTo).id = "";
+								ed.getDoc().getElementById(toSetTo).id = "";
 								
 								// set id on node
 								node.id			= toSetTo;
 								
-							// not confirmed, set selectedindex of node to 0
+							// not confirmed, set selectedindex of node to the first item
 							} else {
-								document.getElementById('BramusCSSExtrasIdsSelect_' + editor_id).selectedIndex = 0;
+								
+								// select the first item
+								selectDropDown.select(listValue.split("::")[0] + '::');
+								
+								// stop the click event
+								// console.log(tinymce.dom.Event.events);
+								tinymce.dom.Event.cancel(tinymce.dom.Event.events[0]);	// BUG! - this ain't workin :-( ... how can I cancel the current event (viz. the click on the item in the ListBox)?
 							}
 							
 						// no element with that id exists yet : set the id
@@ -537,17 +626,24 @@ var TinyMCE_BramusCSSExtrasPlugin = {
 				tinyMCE.execCommand('mceEndUndoLevel');
 				
 				// repaint the instance
-				inst.repaint();
+				ed.execCommand('mceRepaint');
 				
 				// This is needed?
-				tinyMCE.triggerNodeChange(false, true);
+				// EditorManager.activeEditor.nodeChanged();
 				
-				return true;
-			break;
-		}
+			},
+		
+		
+		/**
+		 * End Of Plugin (EOP)
+		 * ---------------------------------------------------------------------------------------------------
+		 */
+		 
+		 	// The last one (so I don't forget to close)
+			EOP							: true
+	
+	});
 
-		return false;
-	}
-};
-
-tinyMCE.addPlugin("bramus_cssextras", TinyMCE_BramusCSSExtrasPlugin);
+	// Register plugin
+	tinymce.PluginManager.add('bramus_cssextras', tinymce.plugins.BramusCssExtras);
+})();
