@@ -1,8 +1,9 @@
 /**
  * @author Bramus!
  * @copyright Copyright © 2007, Bram Van Damme
- * @version 0.1
+ * @version 0.3
  *
+ * v 0.3 - 2007.06.27 - Plugin changed from bramus_classeslist to bramus_cssextras cos it now supports the settings of ids too ;-)
  * v 0.2 - 2007.06.22 - added Undo Levels + a few extra comments (should be fully commented now)
  * v 0.1 - 2007.06.19 - initial build
  */
@@ -10,7 +11,7 @@
 /* Import plugin specific language pack */
 // tinyMCE.importPluginLanguagePack('bramus_classeslist', 'en');
 
-var TinyMCE_bramusClassesPlugin = {
+var TinyMCE_BramusCSSExtrasPlugin = {
 
 	/**
 	 * Returns information about the plugin as a name/value array.
@@ -22,11 +23,11 @@ var TinyMCE_bramusClassesPlugin = {
 	 
 	getInfo : function() {
 		return {
-			longname 	: 'Plugin to support the adding of classes to elements (or their parent element)',
+			longname 	: 'Plugin to support the adding of classes and ids to elements (or their parent element)',
 			author 		: 'Bramus!',
 			authorurl	: 'http://www.bram.us/',
 			infourl		: 'http://www.bram.us/projects/tinymce-plugins/',
-			version		: "0.2"
+			version		: "0.3"
 		};
 	},
 	
@@ -52,68 +53,197 @@ var TinyMCE_bramusClassesPlugin = {
 	 */
 	getControlHTML : function(control_name) {
 		switch (control_name) {
-			case "bramus_classeslist":
-				return (this._buildParamsFromEditor());
+			case "bramus_cssextras_classes":
+			case "bramus_cssextras_ids":
+				return (this._buildParamsFromEditor(control_name));
 			break;
 		}
 
 		return "";
 	},
 	
-	_defaultSelect				: '<select name="bramusClassesSelect" id="bramusClassesSelect_{$editor_id}" onchange="javascript:tinyMCE.execInstanceCommand(\'{$editor_id}\', \'bramus_classeslist\', false, this);" style="width: 80px;"><option value="">[ no class ]</option></select>',
+	_defaultSelectClasses		: '<select name="BramusCSSExtrasClassesSelect" id="BramusCSSExtrasClassesSelect_{$editor_id}" onchange="javascript:tinyMCE.execInstanceCommand(\'{$editor_id}\', \'bramus_cssextras_classes_exec\', false, this);" style="width: 80px;"><option value="">[ no class ]</option></select>',
+	_defaultSelectIds			: '<select name="BramusCSSExtrasIdsSelect" id="BramusCSSExtrasIdsSelect_{$editor_id}" onchange="javascript:tinyMCE.execInstanceCommand(\'{$editor_id}\', \'bramus_cssextras_ids_exec\', false, this);" style="width: 80px;"><option value="">[ no id ]</option></select>',
 	
-	_coreArray					: null,
+	_coreArrayClasses			: null,
+	_coreArrayIds				: null,
 		
-	_buildParamsFromEditor		: function() {
+	_buildParamsFromEditor		: function(control_name) {
 		
-		// save your energy : _coreArray already built (TIP: plugin getControlHTML is loaded multiple times when using multiple instances, yet the plugin is only loaded once!)
-		if (this._coreArray	!= null) { return this._defaultSelect; }
-		
-		// get the param from the init
-		var elmsAndClassesString = tinyMCE.getParam("bramus_classeslist", false);
-		
-		// param is there and is not null : start parsing!
-		if (elmsAndClassesString && elmsAndClassesString != null) {
-			
-			// create new arrays
-			this._coreArray			= new Array();
-			
-			// split out each "elem::parentelem[class1,class2]" entry
-			elmsAndClassesArray 				= elmsAndClassesString.split(';');
-			
-			// loop those entries
-			for (var i = 0; i < elmsAndClassesArray.length; i++) {
+		// STEP 1 : Define what to check (ids or classes?)
+			switch(control_name) {
+				case "bramus_cssextras_classes":
+					coreArray		= this._coreArrayClasses;
+					defaultSelect	= this._defaultSelectClasses;
+					param			= tinyMCE.getParam("bramus_cssextras_classesstring", false);
+				break;
 				
-				// check if syntax is correct and get data from the entry
-				var elmAndClassesString 	= elmsAndClassesArray[i];
-				var elmAndClassesArray		= elmAndClassesString.match(/(.*)::(.*)\[(.*)\]/);
-				
-				// got less than 4 matches : invalid entry!
-				if (elmAndClassesArray.length < 4) {
-					
-					// nothing
-					
-				// found 4 matches : valid entry!
-				} else{
-										
-					// get elementNodeName, parentElementNodeName, elementClasses and push them on the arrayz!
-					this._coreArray.push(new Array(elmAndClassesArray[1], elmAndClassesArray[2], elmAndClassesArray[3].split(',')));
-				}
+				case "bramus_cssextras_ids":
+					coreArray		= this._coreArrayIds;
+					defaultSelect	= this._defaultSelectIds;
+					param			= tinyMCE.getParam("bramus_cssextras_idsstring", false);
+				break;
 			}
-
-		}
-		
-		// got hits? Return a disabled select
-		if (this._coreArray.length !== 0) {
-			return this._defaultSelect;
 			
-		// no hits : don't even bother showing me!
-		} else {
-			return '';
-		}
+		// STEP 2 : Now that we've defined this all, do something with it!
+		
+			// save your energy : coreArray already built (TIP: plugin getControlHTML is loaded multiple times when using multiple instances, yet the plugin is only loaded once!)
+			if (coreArray != null) { return defaultSelect; }
+			
+			// get the param from the init
+			var elmsAndClassesString = param;
+			
+			// param is there and is not null : start parsing!
+			if (elmsAndClassesString && elmsAndClassesString != null) {
+				
+				// create new arrays
+				coreArray			= new Array();
+				
+				// split out each "elem::parentelem[class1,class2]" entry
+				elmsAndClassesArray 				= elmsAndClassesString.split(';');
+				
+				// loop those entries
+				for (var i = 0; i < elmsAndClassesArray.length; i++) {
+					
+					// check if syntax is correct and get data from the entry
+					var elmAndClassesString 	= elmsAndClassesArray[i];
+					var elmAndClassesArray		= elmAndClassesString.match(/(.*)::(.*)\[(.*)\]/);
+					
+					// got less than 4 matches : invalid entry!
+					if (elmAndClassesArray.length < 4) {
+						
+						// nothing
+						
+					// found 4 matches : valid entry!
+					} else{
+											
+						// get elementNodeName, parentElementNodeName, elementClasses and push them on the arrayz!
+						coreArray.push(new Array(elmAndClassesArray[1], elmAndClassesArray[2], elmAndClassesArray[3].split(',')));
+					}
+				}
+	
+			}
+		
+		// STEP 3 : now that everything is filled, set 'm back (pass by reference I miss here ...)
+			switch(control_name) {
+				case "bramus_cssextras_classes":
+					this._coreArrayClasses		= coreArray;
+				break;
+				case "bramus_cssextras_ids":
+					this._coreArrayIds			= coreArray;
+				break;
+			}
+			
+		// STEP 4 : finalize (return something)
+		
+			// corearray not null and got hits? Return a disabled select
+			if (coreArray && (coreArray.length !== 0)) {
+				return defaultSelect;
+				
+			// corearray is null and/or no hits : don't even bother showing me; the user prolly didn't set this param!
+			} else {
+				return '';
+			}
 	},
 	
-	_prevNode					: null,
+	_previousNode				: null,
+	
+	_checkHit					: function(coreArray) {
+	
+		// correarray not null?
+		if (coreArray) {
+			for (var i = 0; i < coreArray.length; i++) {
+				if (coreArray[i][0].toLowerCase() == this._previousNode.nodeName.toLowerCase()) {
+					return coreArray[i];
+				}
+			}
+		}
+		
+		return null;
+		
+	},
+	
+	_doSomethingWithHit			: function(gotHit, selectDropDown, what) {
+		
+		if (gotHit === null) {
+			
+			// only continue if a dropdown is present!
+			if (selectDropDown) {
+				
+				// save your energy : no need to clear things if there's nothing to clear!
+				if (selectDropDown.options.length > 1) {
+									
+					// remove existing items
+					for (var i = selectDropDown.options.length; i >= 0; i--) {
+						selectDropDown.options[i] = null;
+					}
+					
+					// push on the new ones (and enforce first one)
+					selectDropDown.options[0] 		= new Option("[ no " + what + " ]");
+					selectDropDown.options[0].value	= "";
+				}
+				
+				// enable the selectbox!
+				selectDropDown.disabled = 'disabled';
+				
+			}
+
+		} else {
+						
+			// get params from gotHit
+			var elemNodeName		= gotHit[0];
+			var parentElemNodeName	= gotHit[1];
+			var elementClasses		= gotHit[2];
+			
+			// continue if parentElemNodeName equals self, or if parent node equals parentElemNodeName
+			if ((parentElemNodeName == "self") || (tinyMCE.getParentElement(this._previousNode, parentElemNodeName).nodeName.toLowerCase() == parentElemNodeName)) {
+				
+				// remove existing items
+				for (var i = selectDropDown.options.length; i >= 0; i--) {
+					selectDropDown.options[i] = null;
+				}
+				
+				// push on the new ones (and enforce first one)
+				selectDropDown.options[0] 		= new Option("[ no " + what + " ]");
+				selectDropDown.options[0].value	= "";
+				
+				// fill the dropdown with the values
+				for (var i = 0; i < elementClasses.length; i++) {
+					selectDropDown.options[i+1] 				= new Option(elementClasses[i]);
+					selectDropDown.options[i+1].value			= parentElemNodeName + "::" + elementClasses[i];
+					
+					// this node or the parent node?
+					if (parentElemNodeName == "self") {
+						var pNode 	= this._previousNode;
+					} else {
+						var pNode	= tinyMCE.getParentElement(this._previousNode, parentElemNodeName);
+					}
+					
+					// if the instance currently has this class, set this option as selected
+					switch(what) {
+						
+						case "class":
+							if (tinyMCE.hasCSSClass(pNode, elementClasses[i])) {
+								selectDropDown.options[i+1].selected	= true;
+							}
+						break;
+						
+						case "id":
+							if (pNode.id == elementClasses[i]) {
+								selectDropDown.options[i+1].selected	= true;
+							}
+						break;
+					}
+					
+				}
+								
+			}
+			
+			// enable the selectbox!
+			selectDropDown.disabled = false;
+				
+		}
+	},
 
 	/**
 	 * Gets called ones the cursor/selection in a TinyMCE instance changes. This is useful to enable/disable
@@ -145,81 +275,17 @@ var TinyMCE_bramusClassesPlugin = {
 			this._previousNode = node;
 		}
 		
-		// check if current elem has a match in the _coreArray
-		var gotHit		= null;
-	
-		for (var i = 0; i < this._coreArray.length; i++) {
-			if (this._coreArray[i][0].toLowerCase() == node.nodeName.toLowerCase()) {
-				gotHit		= this._coreArray[i];
-				continue;
-			}
-		}
+		// check if current elem has a match in the _coreArrayClasses or _coreArrayIds
+		var gotHitClass		= this._checkHit(this._coreArrayClasses);
+		var gotHitIds		= this._checkHit(this._coreArrayIds);
 		
-		// get the dropdown
-		var selectDropDown = document.getElementById('bramusClassesSelect_' + editor_id);
+		// get the dropdowns
+		var selectDropDownClasses 	= document.getElementById('BramusCSSExtrasClassesSelect_' + editor_id);
+		var selectDropDownIds 		= document.getElementById('BramusCSSExtrasIdsSelect_' + editor_id);
 		
-		if (gotHit === null) {
-			
-			// save your energy : no need to clear things if there's nothing to clear!
-			if (selectDropDown.options.length > 1) {
-								
-				// remove existing items
-				for (var i = selectDropDown.options.length; i >= 0; i--) {
-					selectDropDown.options[i] = null;
-				}
-				
-				// push on the new ones (and enforce first one)
-				selectDropDown.options[0] 		= new Option("[ no class ]");
-				selectDropDown.options[0].value	= "";
-			}
-			
-			// enable the selectbox!
-			selectDropDown.disabled = 'disabled';
-
-		} else {
-						
-			// get params from gotHit
-			var elemNodeName		= gotHit[0];
-			var parentElemNodeName	= gotHit[1];
-			var elementClasses		= gotHit[2];
-			
-			// continue if parentElemNodeName equals self, or if parent node equals parentElemNodeName
-			if ((parentElemNodeName == "self") || (tinyMCE.getParentElement(node, parentElemNodeName).nodeName.toLowerCase() == parentElemNodeName)) {
-				
-				// remove existing items
-				for (var i = selectDropDown.options.length; i >= 0; i--) {
-					selectDropDown.options[i] = null;
-				}
-				
-				// push on the new ones (and enforce first one)
-				selectDropDown.options[0] 		= new Option("[ no class ]");
-				selectDropDown.options[0].value	= "";
-				
-				// fill the dropdown with the values
-				for (var i = 0; i < elementClasses.length; i++) {
-					selectDropDown.options[i+1] 				= new Option(elementClasses[i]);
-					selectDropDown.options[i+1].value			= parentElemNodeName + "::" + elementClasses[i];
-					
-					// this node or the parent node?
-					if (parentElemNodeName == "self") {
-						var pNode 	= node;
-					} else {
-						var pNode	= tinyMCE.getParentElement(node, parentElemNodeName);
-					}
-					
-					// if the instance currently has this class, set this option as selected
-					if (tinyMCE.hasCSSClass(pNode, elementClasses[i])) {
-						selectDropDown.options[i+1].selected	= true;
-					}
-					
-				}
-								
-			}
-			
-			// enable the selectbox!
-			selectDropDown.disabled = false;
-				
-		}
+		// now do something with that hit and that dropdown!
+		this._doSomethingWithHit(gotHitClass, selectDropDownClasses, "class");
+		this._doSomethingWithHit(gotHitIds, selectDropDownIds, "id");
 
 		return true;
 	},
@@ -237,8 +303,8 @@ var TinyMCE_bramusClassesPlugin = {
 	 */
 	execCommand : function(editor_id, element, command, user_interface, value) {
 		switch (command) {
-			case "bramus_classeslist":
-			
+			case "bramus_cssextras_classes_exec":
+			case "bramus_cssextras_ids_exec":
 				// get the instance
 				var inst		= tinyMCE.getInstanceById(editor_id);
 				
@@ -255,8 +321,12 @@ var TinyMCE_bramusClassesPlugin = {
 				// begin Undo
 				tinyMCE.execCommand('mceBeginUndoLevel');			
 				
-				// set className
-				node.className	= listValue.split("::")[1];			
+				// set className of id
+				if (command == "bramus_cssextras_classes_exec") {
+					node.className	= listValue.split("::")[1];
+				} else {
+					node.id			= listValue.split("::")[1];
+				}
 				
 				// endUndo
 				tinyMCE.execCommand('mceEndUndoLevel');
@@ -275,4 +345,4 @@ var TinyMCE_bramusClassesPlugin = {
 	}
 };
 
-tinyMCE.addPlugin("bramus_classeslist", TinyMCE_bramusClassesPlugin);
+tinyMCE.addPlugin("bramus_cssextras", TinyMCE_BramusCSSExtrasPlugin);
