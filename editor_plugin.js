@@ -1,6 +1,6 @@
 /**
  * @name         bramus_cssextras
- * @version      0.3.3
+ * @version      0.4.0
  *
  * @author       Bramus! (Bram Van Damme)
  * @authorURL    http://www.bram.us/
@@ -10,6 +10,8 @@
  * @licenseURL   http://creativecommons.org/licenses/by-sa/2.5/
  *
  *
+ * v 0.4.0 - 2007.09.10 - BUG : selection noclass returned "undefined" as class, should be empty
+ *                      - ADD : automatic building of the bramus_cssextras_classesstring and bramus_cssextras_idsstring
  * v 0.3.3 - 2007.07.27 - getInfo returned wrong version. Fixed + version increment.
  * v 0.3.2 - 2007.07.23 - minor change in outputted HTML of the selects
  * v 0.3.1 - 2007.06.28 - ids must be unique, so added a check and confirm thingy ;-)
@@ -37,7 +39,7 @@ var TinyMCE_BramusCSSExtrasPlugin = {
 			author 		: 'Bramus!',
 			authorurl	: 'http://www.bram.us/',
 			infourl		: 'http://www.bram.us/projects/tinymce-plugins/',
-			version		: "0.3.3"
+			version		: "0.4.0"
 		};
 	},
 	
@@ -77,6 +79,124 @@ var TinyMCE_BramusCSSExtrasPlugin = {
 	
 	_coreArrayClasses			: null,
 	_coreArrayIds				: null,
+	
+	_xmlhttp					: null,
+	_xmlhttpresponse			: null,
+		
+	_loadContentCSS				: function(control_name) {
+	
+		// if this_xmlhttpresponse equals null, then the css file hasn't been loaded yet ... 
+			if (this._xmlhttpresponse == null) {
+
+				// create nex XHR object
+				if (window.XMLHttpRequest) {
+					this._xmlhttp 	= new XMLHttpRequest();
+				} else if (window.ActiveXObject) {
+					this._xmlhttp 	= new ActiveXObject('Microsoft.XMLHTTP');
+				}
+				
+				// make sure it's an object
+				if (typeof(this._xmlhttp) == 'object') {
+					
+					// get the content_css path
+					content_css	= tinyMCE.getParam("content_css", false);
+					
+					// content_css exists?
+					if (content_css && (content_css != null) && (content_css != "")) {
+						
+						// load it in, but <<<< SYNCHRONOUS >>>>
+						// this._xmlhttp.onreadystatechange	= this._doneLoadContentCSS;		// SYNCHRONOUS, no need to set onreadystatechange!
+						this._xmlhttp.open('GET', content_css, false);						// false == SYNCHRONOUS ;-)
+						this._xmlhttp.send(null);
+						
+						// wait for it to load
+						if (this._xmlhttp.readyState == 4) {
+	
+							// loaded!
+							if (this._xmlhttp.status == 200) {
+	
+								// get the responseText
+								this._xmlhttpresponse	= this._xmlhttp.responseText;
+	
+								// run some prelim regexes on them
+								this._xmlhttpresponse 	= this._xmlhttpresponse.replace(/(\r\n)/g, "");			// get all CSS rules on 1 line per selector : 1 line on whole document
+								this._xmlhttpresponse 	= this._xmlhttpresponse.replace(/(\})/g, "}\n");		// get all CSS rules on 1 line per selector : 1 line per selector
+								this._xmlhttpresponse 	= this._xmlhttpresponse.replace(/\{(.*)\}/g, "");		// strip out css rules themselves
+								this._xmlhttpresponse 	= this._xmlhttpresponse.replace(/\/\*(.*)\*\//g, "");	// strip out comments
+								this._xmlhttpresponse 	= this._xmlhttpresponse.replace(/\t/g, "");				// strip out tabs
+	
+								// clear the xhr object
+								this._xmlhttp 			= null;
+	
+							// not loaded!
+							} else {
+								alert("[bramus_cssextras] Error while loading content_css file, make sure the path is correct and that the file is located on this server!");	
+							}
+						}
+						
+					}
+					
+				}
+			}
+							
+		// someone set us up the bomb! -->> strip out classes (or ids)
+			if (control_name == "bramus_cssextras_classes") {
+				matches		= this._xmlhttpresponse.match(/([a-zA-Z0-9])+(\.)([a-zA-Z0-9_\-])+(\b)?/g);
+			} else {
+				matches		= this._xmlhttpresponse.match(/([a-zA-Z0-9])+(\#)([a-zA-Z0-9_\-])+(\b)?/g);
+			}
+			
+		// found any hits?
+			if (!matches) {
+				return '';	
+			} else {
+				arr_selectors			= new Array();
+				arr_values				= new Array();
+			}
+		
+		// run matches and build selectors and values arrays.					
+			for (var i = 0; i < matches.length; i++) {
+				
+				if (control_name == "bramus_cssextras_classes") {
+					matches[i]	= matches[i].split(".");
+				} else {
+					matches[i]	= matches[i].split("#");
+				}
+				
+				
+				var position	= this._inArray(((matches[i][0] != "ul")?matches[i][0]:"li") + "::" + ((matches[i][0] != "ul")?"self":matches[i][0]), arr_selectors);
+			
+				// not found : add selector and classes/ids
+				if (position === false) {
+					arr_selectors.push(((matches[i][0] != "ul")?matches[i][0]:"li") + "::" + ((matches[i][0] != "ul")?"self":matches[i][0]));
+					arr_values.push(matches[i][1]);
+					
+				// found, adjust ids on position
+				} else {
+					arr_values[position]	= arr_values[position] + "," + matches[i][1];
+				}
+
+			}
+		
+		// build the elmsAndClassesArray
+			var elmsAndClassesArray			= new Array();
+			
+			for (var i = 0;  i < arr_selectors.length; i++) {
+				elmsAndClassesArray.push(arr_selectors[i] + "[" + arr_values[i] + "]");
+			}
+								
+			return elmsAndClassesArray;
+	},
+	
+	// get position of item in array
+	_inArray					: function(needle, haystack) {		
+		for (var i = 0; i < haystack.length; i++){
+			if (needle == haystack[i]) {
+				return i;
+			}
+		}			
+		return false;
+	},
 		
 	_buildParamsFromEditor		: function(control_name) {
 		
@@ -85,16 +205,16 @@ var TinyMCE_BramusCSSExtrasPlugin = {
 				case "bramus_cssextras_classes":
 					coreArray		= this._coreArrayClasses;
 					defaultSelect	= this._defaultSelectClasses;
-					param			= tinyMCE.getParam("bramus_cssextras_classesstring", false);
+					param			= tinyMCE.getParam("bramus_cssextras_classesstring", null);
 				break;
 				
 				case "bramus_cssextras_ids":
 					coreArray		= this._coreArrayIds;
 					defaultSelect	= this._defaultSelectIds;
-					param			= tinyMCE.getParam("bramus_cssextras_idsstring", false);
+					param			= tinyMCE.getParam("bramus_cssextras_idsstring", null);
 				break;
 			}
-			
+						
 		// STEP 2 : Now that we've defined this all, do something with it!
 		
 			// save your energy : coreArray already built (TIP: plugin getControlHTML is loaded multiple times when using multiple instances, yet the plugin is only loaded once!)
@@ -103,16 +223,24 @@ var TinyMCE_BramusCSSExtrasPlugin = {
 			// get the param from the init
 			var elmsAndClassesString = param;
 			
-			// param is there and is not null : start parsing!
-			if (elmsAndClassesString && elmsAndClassesString != null) {
-				
-				// create new arrays
-				coreArray			= new Array();
-				
-				// split out each "elem::parentelem[class1,class2]" entry
+			// param is there (can be empty)
+			if (elmsAndClassesString != null) {
+				// split out each "elem::parentelem[class1,class2]" entry from that string
 				elmsAndClassesArray 				= elmsAndClassesString.split(';');
 				
-				// loop those entries
+			// param is not there
+			} else {				
+				// try building the elmsAndClassesArray by reading in and parsing the content_css file
+				elmsAndClassesArray					= this._loadContentCSS(control_name);
+			}
+			
+			// console.log(elmsAndClassesArray);
+			
+			// create new array to hold the real stuff
+			coreArray			= new Array();
+			
+			// loop the entries of elmsAndClassesArray
+			if (elmsAndClassesArray.length > 0) {
 				for (var i = 0; i < elmsAndClassesArray.length; i++) {
 					
 					// check if syntax is correct and get data from the entry
@@ -120,7 +248,7 @@ var TinyMCE_BramusCSSExtrasPlugin = {
 					var elmAndClassesArray		= elmAndClassesString.match(/(.*)::(.*)\[(.*)\]/);
 					
 					// got less than 4 matches : invalid entry!
-					if (elmAndClassesArray.length < 4) {
+					if ((!elmAndClassesArray) || (elmAndClassesArray.length < 4)) {
 						
 						// nothing
 						
@@ -131,9 +259,8 @@ var TinyMCE_BramusCSSExtrasPlugin = {
 						coreArray.push(new Array(elmAndClassesArray[1], elmAndClassesArray[2], elmAndClassesArray[3].split(',')));
 					}
 				}
-	
 			}
-		
+			
 		// STEP 3 : now that everything is filled, set 'm back (pass by reference I miss here ...)
 			switch(control_name) {
 				case "bramus_cssextras_classes":
@@ -331,35 +458,48 @@ var TinyMCE_BramusCSSExtrasPlugin = {
 				// begin Undo
 				tinyMCE.execCommand('mceBeginUndoLevel');			
 				
+				// define what to set class or id to
+				toSetTo 	= (listValue.split("::")[1] != undefined)?listValue.split("::")[1]:"";
+				
 				// set className
 				if (command == "bramus_cssextras_classes_exec") {
-					node.className	= listValue.split("::")[1];
+					node.className	= toSetTo;
 					
 				// set id
 				} else {
 					
-					// there already exists an element with that id?
-					if (inst.getDoc().getElementById(listValue.split("::")[1])) {
+					// toSetTo is not empty : perform a check if an element with that id already exists
+					if (toSetTo != "") {
 						
-						// confirm the move of the id
-						if (confirm("There already exists an element with that id, ids must be unique.\nPress 'OK' to move the id to the current element.\nPress 'Cancel' to leave unchanged")) {
+						// there already exists an element with that id?
+						if (inst.getDoc().getElementById(toSetTo)) {
 							
-							// remove id from current element with that id
-							inst.getDoc().getElementById(listValue.split("::")[1]).id = "";
+							// confirm the move of the id
+							if (confirm("There already exists an element with that id, ids must be unique.\nPress 'OK' to move the id to the current element.\nPress 'Cancel' to leave unchanged")) {
+								
+								// remove id from current element with that id
+								inst.getDoc().getElementById(toSetTo).id = "";
+								
+								// set id on node
+								node.id			= toSetTo;
+								
+							// not confirmed, set selectedindex of node to 0
+							} else {
+								document.getElementById('BramusCSSExtrasIdsSelect_' + editor_id).selectedIndex = 0;
+							}
 							
-							// set id on node
-							node.id			= listValue.split("::")[1];
-							
-						// not confirmed, set selectedindex of node to 0
+						// no element with that id exists yet : set the id
 						} else {
-							document.getElementById('BramusCSSExtrasIdsSelect_' + editor_id).selectedIndex = 0;
-						}
-					
-					// id not found in document yet
-					} else {
-						
+							
 						// set id on node
-						node.id				= listValue.split("::")[1];
+						node.id				= toSetTo;
+					}
+						
+					// toSetTo is empty : clear the id on the selected element
+					} else {
+							
+						// set id on node
+						node.id				= toSetTo;
 					}
 				}
 				
