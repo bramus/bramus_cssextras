@@ -1,6 +1,6 @@
 /**
  * @name         bramus_cssextras
- * @version      0.4.0
+ * @version      0.4.1
  *
  * @author       Bramus! (Bram Van Damme)
  * @authorURL    http://www.bram.us/
@@ -10,6 +10,8 @@
  * @licenseURL   http://creativecommons.org/licenses/by-sa/2.5/
  *
  *
+ * v 0.4.1 - 2007.11.22 - BUG : didn't work with multiple content_css files specified (@see http://www.bram.us/projects/tinymce-plugins/tinymce-classes-and-ids-plugin-bramus_cssextras/#comment-89820)
+ *                      - BUG : If for example p.test is defined multiple times, show "test" only once in the dropdown.
  * v 0.4.0 - 2007.09.10 - BUG : selection noclass returned "undefined" as class, should be empty
  *                      - ADD : automatic building of the bramus_cssextras_classesstring and bramus_cssextras_idsstring
  * v 0.3.3 - 2007.07.27 - getInfo returned wrong version. Fixed + version increment.
@@ -39,7 +41,7 @@ var TinyMCE_BramusCSSExtrasPlugin = {
 			author 		: 'Bramus!',
 			authorurl	: 'http://www.bram.us/',
 			infourl		: 'http://www.bram.us/projects/tinymce-plugins/',
-			version		: "0.4.0"
+			version		: "0.4.1"
 		};
 	},
 	
@@ -82,6 +84,18 @@ var TinyMCE_BramusCSSExtrasPlugin = {
 	
 	_xmlhttp					: null,
 	_xmlhttpresponse			: null,
+	
+	_trim 						: function(str) {
+		return str.replace(/^\s+|\s+$/g,"");
+	},
+	
+	_ltrim 						: function(str) {
+		return str.replace(/^\s+/,"");
+	},
+	
+	_rtrim 						: function() {
+		return this.replace(/\s+$/,"");
+	},
 		
 	_loadContentCSS				: function(control_name) {
 	
@@ -101,38 +115,50 @@ var TinyMCE_BramusCSSExtrasPlugin = {
 					// get the content_css path
 					content_css	= tinyMCE.getParam("content_css", false);
 					
+					// var which will hold all data from all files referred through content_css
+					content_css_data = "";
+					
 					// content_css exists?
 					if (content_css && (content_css != null) && (content_css != "")) {
 						
-						// load it in, but <<<< SYNCHRONOUS >>>>
-						// this._xmlhttp.onreadystatechange	= this._doneLoadContentCSS;		// SYNCHRONOUS, no need to set onreadystatechange!
-						this._xmlhttp.open('GET', content_css, false);						// false == SYNCHRONOUS ;-)
-						this._xmlhttp.send(null);
+						// support the referring of multiple classes
+						content_css_arr	= content_css.split(',');
 						
-						// wait for it to load
-						if (this._xmlhttp.readyState == 4) {
-	
-							// loaded!
-							if (this._xmlhttp.status == 200) {
-	
-								// get the responseText
-								this._xmlhttpresponse	= this._xmlhttp.responseText;
-	
-								// run some prelim regexes on them
-								this._xmlhttpresponse 	= this._xmlhttpresponse.replace(/(\r\n)/g, "");			// get all CSS rules on 1 line per selector : 1 line on whole document
-								this._xmlhttpresponse 	= this._xmlhttpresponse.replace(/(\})/g, "}\n");		// get all CSS rules on 1 line per selector : 1 line per selector
-								this._xmlhttpresponse 	= this._xmlhttpresponse.replace(/\{(.*)\}/g, "");		// strip out css rules themselves
-								this._xmlhttpresponse 	= this._xmlhttpresponse.replace(/\/\*(.*)\*\//g, "");	// strip out comments
-								this._xmlhttpresponse 	= this._xmlhttpresponse.replace(/\t/g, "");				// strip out tabs
-	
-								// clear the xhr object
-								this._xmlhttp 			= null;
-	
-							// not loaded!
-							} else {
-								alert("[bramus_cssextras] Error while loading content_css file, make sure the path is correct and that the file is located on this server!");	
+						// loop all referred css files
+						for (i = 0; i < content_css_arr.length; i++) {
+							
+							// load it in, but <<<< SYNCHRONOUS >>>>
+							// this._xmlhttp.onreadystatechange	= this._doneLoadContentCSS;		// SYNCHRONOUS, no need to set onreadystatechange!
+							this._xmlhttp.open('GET', this._trim(content_css_arr[i]), false);						// false == SYNCHRONOUS ;-)
+							this._xmlhttp.send(null);
+							
+							// wait for it to load
+							if (this._xmlhttp.readyState == 4) {
+		
+								// loaded!
+								if (this._xmlhttp.status == 200) {
+		
+									// get the responseText
+									this._xmlhttpresponse	= this._xmlhttp.responseText;
+		
+									// run some prelim regexes on them
+									this._xmlhttpresponse 	= this._xmlhttpresponse.replace(/(\r\n)/g, "");			// get all CSS rules on 1 line per selector : 1 line on whole document
+									this._xmlhttpresponse 	= this._xmlhttpresponse.replace(/(\})/g, "}\n");		// get all CSS rules on 1 line per selector : 1 line per selector
+									this._xmlhttpresponse 	= this._xmlhttpresponse.replace(/\{(.*)\}/g, "");		// strip out css rules themselves
+									this._xmlhttpresponse 	= this._xmlhttpresponse.replace(/\/\*(.*)\*\//g, "");	// strip out comments
+									this._xmlhttpresponse 	= this._xmlhttpresponse.replace(/\t/g, "");				// strip out tabs
+		
+									content_css_data		+= this._xmlhttpresponse + "\n";
+		
+								// not loaded!
+								} else {
+									alert("[bramus_cssextras] Error while loading content_css file '" + content_css_arr[i] + "', make sure the path is correct and that the file is located on this server!");	
+								}
 							}
 						}
+		
+						// clear the xhr object
+						this._xmlhttp 			= null;
 						
 					}
 					
@@ -141,9 +167,9 @@ var TinyMCE_BramusCSSExtrasPlugin = {
 							
 		// someone set us up the bomb! -->> strip out classes (or ids)
 			if (control_name == "bramus_cssextras_classes") {
-				matches		= this._xmlhttpresponse.match(/([a-zA-Z0-9])+(\.)([a-zA-Z0-9_\-])+(\b)?/g);
+				matches		= content_css_data.match(/([a-zA-Z0-9])+(\.)([a-zA-Z0-9_\-])+(\b)?/g);
 			} else {
-				matches		= this._xmlhttpresponse.match(/([a-zA-Z0-9])+(\#)([a-zA-Z0-9_\-])+(\b)?/g);
+				matches		= content_css_data.match(/([a-zA-Z0-9])+(\#)([a-zA-Z0-9_\-])+(\b)?/g);
 			}
 			
 		// found any hits?
@@ -173,7 +199,11 @@ var TinyMCE_BramusCSSExtrasPlugin = {
 					
 				// found, adjust ids on position
 				} else {
-					arr_values[position]	= arr_values[position] + "," + matches[i][1];
+					// extra check: check if ain't class/id isn't in values yet!
+					// console.log("Checking for " + matches[i][1] + " in " + arr_values[position].split(','));
+					if (this._inArray(matches[i][1], arr_values[position].split(',')) === false) {
+						arr_values[position]	= arr_values[position] + "," + matches[i][1];
+					}
 				}
 
 			}
@@ -189,7 +219,7 @@ var TinyMCE_BramusCSSExtrasPlugin = {
 	},
 	
 	// get position of item in array
-	_inArray					: function(needle, haystack) {		
+	_inArray					: function(needle, haystack) {
 		for (var i = 0; i < haystack.length; i++){
 			if (needle == haystack[i]) {
 				return i;
