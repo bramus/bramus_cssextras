@@ -1,15 +1,16 @@
 /**
  * @name         bramus_cssextras
- * @version      0.5.3
+ * @version      0.5.4
  *
  * @author       Bramus! (Bram Van Damme)
  * @authorURL    http://www.bram.us/
  * @infoURL      http://www.bram.us/projects/tinymce-plugins/
+ * @repoURL		 https://github.com/bramus/bramus_cssextras
  *
- * @license      Creative Commons Attribution-Share Alike 2.5
- * @licenseURL   http://creativecommons.org/licenses/by-sa/2.5/
+ * @license	BSD License - http://creativecommons.org/licenses/BSD/
  *
- * v 0.5.3 - 2010.09.13 - BUG: 'selectDropDown' is undefined when using GZIP
+ * v 0.5.4 - 2010.11.07 - UPD : Switched License to a BSD License. 
+ * v 0.5.3 - 2010.09.13 - BUG : 'selectDropDown' is undefined when using GZIP
  * v 0.5.2 - 2010.05.15 - BUG : dropdown remained in place / wasn't removed properly most of the time
  *                      - UPD : back to using TinyMCE's internal XHR object which didn't make it into 0.5.1.
  *                              (turns out it was a bug in the TinyMCE version at the time that didn't execute non-asynchronous (thus synchronous) ajax calls properly)
@@ -48,7 +49,7 @@
 					author 		: 'Bramus!',
 					authorurl	: 'http://www.bram.us/',
 					infourl		: 'http://www.bram.us/projects/tinymce-plugins/',
-					version		: "0.5.3"
+					version		: "0.5.4"
 				};
 			},
 
