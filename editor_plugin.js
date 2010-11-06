@@ -1,8 +1,16 @@
 /**
- * @author Bramus!
- * @copyright Copyright © 2007, Bram Van Damme
- * @version 0.3.2
+ * @name         bramus_cssextras
+ * @version      0.3.3
  *
+ * @author       Bramus! (Bram Van Damme)
+ * @authorURL    http://www.bram.us/
+ * @infoURL      http://www.bram.us/projects/tinymce-plugins/
+ * 
+ * @license      Creative Commons Attribution-Share Alike 2.5
+ * @licenseURL   http://creativecommons.org/licenses/by-sa/2.5/
+ *
+ *
+ * v 0.3.3 - 2007.07.27 - getInfo returned wrong version. Fixed + version increment.
  * v 0.3.2 - 2007.07.23 - minor change in outputted HTML of the selects
  * v 0.3.1 - 2007.06.28 - ids must be unique, so added a check and confirm thingy ;-)
  * v 0.3   - 2007.06.27 - Plugin changed from bramus_classeslist to bramus_cssextras as it now supports the settings of ids too :-)
@@ -29,7 +37,7 @@ var TinyMCE_BramusCSSExtrasPlugin = {
 			author 		: 'Bramus!',
 			authorurl	: 'http://www.bram.us/',
 			infourl		: 'http://www.bram.us/projects/tinymce-plugins/',
-			version		: "0.3.1"
+			version		: "0.3.3"
 		};
 	},
 	
