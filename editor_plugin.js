@@ -1,11 +1,12 @@
 /**
  * @author Bramus!
  * @copyright Copyright © 2007, Bram Van Damme
- * @version 0.3
+ * @version 0.3.1
  *
- * v 0.3 - 2007.06.27 - Plugin changed from bramus_classeslist to bramus_cssextras cos it now supports the settings of ids too ;-)
- * v 0.2 - 2007.06.22 - added Undo Levels + a few extra comments (should be fully commented now)
- * v 0.1 - 2007.06.19 - initial build
+ * v 0.3.1 - 2007.06.28 - ids must be unique, so added a check and confirm thingy ;-)
+ * v 0.3   - 2007.06.27 - Plugin changed from bramus_classeslist to bramus_cssextras cos it now supports the settings of ids too :-)
+ * v 0.2   - 2007.06.22 - added Undo Levels + a few extra comments (should be fully commented now)
+ * v 0.1   - 2007.06.19 - initial build
  */
 
 /* Import plugin specific language pack */
@@ -27,7 +28,7 @@ var TinyMCE_BramusCSSExtrasPlugin = {
 			author 		: 'Bramus!',
 			authorurl	: 'http://www.bram.us/',
 			infourl		: 'http://www.bram.us/projects/tinymce-plugins/',
-			version		: "0.3"
+			version		: "0.3.1"
 		};
 	},
 	
@@ -321,11 +322,36 @@ var TinyMCE_BramusCSSExtrasPlugin = {
 				// begin Undo
 				tinyMCE.execCommand('mceBeginUndoLevel');			
 				
-				// set className of id
+				// set className
 				if (command == "bramus_cssextras_classes_exec") {
 					node.className	= listValue.split("::")[1];
+					
+				// set id
 				} else {
-					node.id			= listValue.split("::")[1];
+					
+					// there already exists an element with that id?
+					if (inst.getDoc().getElementById(listValue.split("::")[1])) {
+						
+						// confirm the move of the id
+						if (confirm("There already exists an element with that id, ids must be unique.\nPress 'OK' to move the id to the current element.\nPress 'Cancel' to leave unchanged")) {
+							
+							// remove id from current element with that id
+							inst.getDoc().getElementById(listValue.split("::")[1]).id = "";
+							
+							// set id on node
+							node.id			= listValue.split("::")[1];
+							
+						// not confirmed, set selectedindex of node to 0
+						} else {
+							document.getElementById('BramusCSSExtrasIdsSelect_' + editor_id).selectedIndex = 0;
+						}
+					
+					// id not found in document yet
+					} else {
+						
+						// set id on node
+						node.id				= listValue.split("::")[1];
+					}
 				}
 				
 				// endUndo
