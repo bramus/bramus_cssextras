@@ -1,6 +1,6 @@
 /**
  * @name         bramus_cssextras
- * @version      0.5.1
+ * @version      0.5.2
  *
  * @author       Bramus! (Bram Van Damme)
  * @authorURL    http://www.bram.us/
@@ -9,6 +9,9 @@
  * @license      Creative Commons Attribution-Share Alike 2.5
  * @licenseURL   http://creativecommons.org/licenses/by-sa/2.5/
  *
+ * v 0.5.2 - 2010.05.15 - BUG : dropdown remained in place / wasn't removed properly most of the time
+ *                      - UPD : back to using TinyMCE's internal XHR object which didn't make it into 0.5.1.
+ *                              (turns out it was a bug in the TinyMCE version at the time that didn't execute non-asynchronous (thus synchronous) ajax calls properly)
  * v 0.5.1 - 2008.04.25 - UPD : TinMCE 3.x Compatiblity update
  *                      - UPD : Changed some internal calls to use the  builtin TinyMCE helper functions (inArray & trim) to reduce the bramus_cssextras codebase
  *                              (didn't use the XHR Object though as I experienced some probs with it)
@@ -44,7 +47,7 @@
 					author 		: 'Bramus!',
 					authorurl	: 'http://www.bram.us/',
 					infourl		: 'http://www.bram.us/projects/tinymce-plugins/',
-					version		: "0.5.1"
+					version		: "0.5.2"
 				};
 			},
 
@@ -89,14 +92,6 @@
 		 * ---------------------------------------------------------------------------------------------------
 		 */
 
-			// Strings that will hold all possible classes/ids /* removed, these are global now */
-				// _coreClassesString			: null,
-				// _coreIdsStrings				: null,
-
-			// Arrays that will hold all possible classes/ids /* removed, these are global now */
-				// _coreClassesArray			: null,
-				// _coreIdsArray				: null,
-
 			// The dropdowns
 				_coreClassesDropdown		: null,
 				_coreIdsDropdown			: null,
@@ -107,7 +102,6 @@
 
 			// CPU Power Savers : The previous node (don't calculate if nothing changed) and Already loaded (only init this plugin once)
 				_previousNode				: null,
-				// _loaded						: null, /* removed, these are global now */
 
 		/**
 		 * Init function
@@ -176,56 +170,42 @@
 				// var which will hold all data from all files referred through content_css
 					content_css_data = "";
 
-
-				// BUG! - Could not use TinyMCE XHR as that one doesn't process the async calls after each other!
-				// make sure it's an object
-					if (typeof(this._xmlhttp) == 'object') {
-
-						// content_css exists?
-							if (content_css && (content_css != null) && (content_css != "")) {
-
-								// support the referring of multiple classes
-									content_css_arr	= content_css.split(',');
-
-								// loop all referred css files
-									for (i = 0; i < content_css_arr.length; i++) {
-
-										// load it in, but <<<< SYNCHRONOUS >>>>
-										// this._xmlhttp.onreadystatechange	= this._doneLoadContentCSS;		// SYNCHRONOUS, no need to set onreadystatechange!
-											this._xmlhttp.open('GET', tinymce.trim(content_css_arr[i]), false);						// false == SYNCHRONOUS ;-)
-											this._xmlhttp.send(null);
-
-										// wait for it to load
-											if (this._xmlhttp.readyState == 4) {
-
-												// loaded!
-												if (this._xmlhttp.status == 200) {
-
-													// get the responseText
-													this._xmlhttpresponse	= this._xmlhttp.responseText;
-
-													// run some prelim regexes on them
-													this._xmlhttpresponse 	= this._xmlhttpresponse.replace(/(\r\n)/g, "");			// get all CSS rules on 1 line per selector : 1 line on whole document
-													this._xmlhttpresponse 	= this._xmlhttpresponse.replace(/(\r)/g, "");			// get all CSS rules on 1 line per selector : 1 line on whole document
-													this._xmlhttpresponse 	= this._xmlhttpresponse.replace(/(\n)/g, "");			// get all CSS rules on 1 line per selector : 1 line on whole document
-													this._xmlhttpresponse 	= this._xmlhttpresponse.replace(/(\})/g, "}\n");		// get all CSS rules on 1 line per selector : 1 line per selector
-													this._xmlhttpresponse 	= this._xmlhttpresponse.replace(/\{(.*)\}/g, "");		// strip out css rules themselves
-													this._xmlhttpresponse 	= this._xmlhttpresponse.replace(/\/\*(.*)\*\//g, "");	// strip out comments
-													this._xmlhttpresponse 	= this._xmlhttpresponse.replace(/\t/g, "");				// strip out tabs
-
-													content_css_data		+= tinymce.trim(this._xmlhttpresponse) + "\n";
-
-												// not loaded!
-												} else {
-                        							tinyMCE.activeEditor.windowManager.alert("[bramus_cssextras] Error while loading content_css file '" + content_css_arr[i] + "', make sure the path is correct!");
-												}
-											}
+				// Got get content_css (but only if content_css exists of course!)
+					if (content_css && (content_css != null) && (content_css != "")) {
+	
+						// support the referring of multiple classes
+							content_css_arr	= content_css.split(',');
+	
+						// loop all referred css files
+							for (i = 0; i < content_css_arr.length; i++) {
+	
+								// load it in, but <<<< SYNCHRONOUS >>>>
+								tinymce.util.XHR.send({										
+									url				: tinymce.trim(content_css_arr[i]),											
+									content_type	: 'text/plain',											
+									type			: "GET",											
+									async			: false,											
+									success			: function(data, req, o) {
+	
+										// run some prelim regexes on them
+										data = data.replace(/(\r\n)/g, "");			// get all CSS rules on 1 line per selector : 1 line on whole document
+										data = data.replace(/(\r)/g, "");			// get all CSS rules on 1 line per selector : 1 line on whole document
+										data = data.replace(/(\n)/g, "");			// get all CSS rules on 1 line per selector : 1 line on whole document
+										data = data.replace(/(\})/g, "}\n");		// get all CSS rules on 1 line per selector : 1 line per selector
+										data = data.replace(/\{(.*)\}/g, "");		// strip out css rules themselves
+										data = data.replace(/\/\*(.*)\*\//g, "");	// strip out comments
+										data = data.replace(/\t/g, "");				// strip out tabs
+	
+										content_css_data		+= tinymce.trim(data) + "\n";
+									
+									},											
+									error			: function(type, req, o) {
+										tinyMCE.activeEditor.windowManager.alert("[bramus_cssextras] Error while loading content_css file '" + o.url + "', make sure the path is correct! (" + req.status + "_" + type + ")");
 									}
-
-								// clear the xhr object
-									this._xmlhttp 			= null;
-
+								});
+								
 							}
+
 					}
 
 				// process the content_css_data (only if the vars are not set yet - viz. don't overwrite)
@@ -393,7 +373,6 @@
 		 */
 
 			_nodeChange : function(ed, cm, n, c, o) {
-
 				// save your energy : check if ed.id equals tinyMCE.activeEditor.id
 					if (tinyMCE.activeEditor.id != ed.id) {
 						return;
@@ -448,7 +427,7 @@
 			_rebuildDropdown			: function(gotHit, selectDropDown, what, ed) {
 
 				// console.log(selectDropDown);
-
+				
 				if (gotHit === null) {
 
 					// only continue if a dropdown is present!
@@ -462,9 +441,6 @@
 
 						// select nothing
 						selectDropDown.select();
-
-						// renforce renderHTML! - NEEDED?
-						selectDropDown.renderHTML();
 
 						// disable the dropdown
 						selectDropDown.setDisabled(true);
@@ -489,9 +465,6 @@
 
 						// push on the new ones (and enforce first one)
 						selectDropDown.add('[ no ' + what + ' ]', parentElemNodeName + "::");
-
-						// renforce renderHTML! - NEEDED?
-						selectDropDown.renderHTML();
 
 						// select nothing
 						selectDropDown.select();
@@ -525,8 +498,12 @@
 						}
 
 					}
+					
+					// cleanup
+					var old = document.getElementById('menu_' + ed.editorId + '_' + selectDropDown.id + '_menu');
+					if(old) old.parentNode.removeChild(old);
 
-					// render the selectdropdown
+					// render the selectdropdown					
 					selectDropDown.renderMenu();
 
 					// enable the selectbox!
@@ -539,6 +516,8 @@
 			_execCommand			: function(ed, listValue, selectDropDown, what) {
 
 				// console.log(selectDropDown);
+				
+				if(!listValue) return;
 
 				// this node or the parent node?
 				if (listValue.split("::")[0] == "self") {
@@ -603,7 +582,7 @@
 				tinyMCE.execCommand('mceEndUndoLevel');
 
 				// enforce a hide, but on the menu itself - BUG! Firefox3!
-				selectDropDown.menu.hideMenu();
+				// selectDropDown.menu.hideMenu();
 
 			},
 
