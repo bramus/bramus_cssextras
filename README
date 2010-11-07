@@ -1,0 +1,7 @@
+bramus_cssextras - TinyMCE CSS Classes and IDs Plugin
+
+bramus_cssextras is a plugin for TinyMCE which enables the usage of CSS classes and CSS ids on any HTML element within TinyMCE. Together with an external CSS file, set via the TinyMCE content_css  setting, bramus_cssextras bridges the (visual) gap between the content entered through TinyMCE and the actual output
+
+Watch a demo online at http://www.bram.us/demo/projects/bramus_cssextras/
+Find out how to use bramus_cssextras at http://www.bram.us/projects/tinymce-plugins/tinymce-classes-and-ids-plugin-bramus_cssextras/
+Fork the source of bramus_cssextras https://github.com/bramus/bramus_cssextras
